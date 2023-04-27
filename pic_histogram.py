@@ -1,72 +1,89 @@
-
-import matplotlib.pyplot as plt
 from PIL import Image
+import numpy as np
+import matplotlib.pyplot as plt
+from qrcode_HS import plot_image_histogram
 
-def get_gray_pix(img):
-    pix=[]
-    width, hight = get_w_h(img)
-    img = Image.open(img).convert("L")
+def histogram_shift_hide(image_path, secret_data, shift):
+    """
+    直方图平移的可逆信息隐藏算法
 
-    for i in range(hight):
-        for j in range(width):
-            pix.append(img.getpixel((j,i)))
-    return pix
+    参数：
+    image_path (str)：待处理的图像路径
+    secret_data (str)：要隐藏的秘密数据
+    shift (int)：直方图平移的位移量
 
-def get_w_h(img):
-    img=Image.open(img)
-    width=img.width
-    hight=img.height
-    return width,hight
-def generate_hist(data,bin):
-    histogram, bins, patch = plt.hist(data, bin,
-                                      facecolor='blue', histtype='stepfilled')  # histograming
+    返回值：
+    stego_image (PIL.Image.Image)：隐藏秘密数据后的图像
+    extracted_data (str)：提取出的秘密数据
+    """
 
-    return histogram
-def Find_min_Distancce(list,seek_num,flag_num,Critical_flag):#第一个是列表，第二是需要寻找的数，第三个是指定的参考数字,第四个为参考数字
-    Distance=256#先预设一个最大的距离
-    for i in range(0,len(list)):
-        if list[i]==seek_num:
-            flag=i+1#这个是0点的下标
-            if flag_num<Critical_flag:
-                if abs(flag_num-flag)<Distance and (flag<flag_num or (flag>flag_num and flag<Critical_flag)):#比较得出最近的距离
-                    Distance=abs(flag_num-flag)
-                    flag_min=flag#保存一下当前距离的下标
-            else:
-                if abs(flag_num-flag)<Distance and (flag>flag_num or (flag<flag_num and flag>Critical_flag)):#比较得出最近的距离
-                    Distance=abs(flag_num-flag)
-                    flag_min=flag#保存一下当前距离的下标
-    return flag_min
+    # 读取图像
+    image = Image.open(image_path)
 
-def pic_histogram_key_inf(pic_address,show_histogram):
+    # 将图像转换为灰度图
+    image_gray = image.convert('L')
 
-    #函数说明：用来将图片转换成直方图，并且返回直方图当中的像素数量最多的位置和次多的位置，以及返回离最高和次高位置的0点位置
-    #形参数说明：pic_address图片地址   show_histogram为1显示直方图为0不显示
-    #返回参数说明：MaxPix最多像素的个数,MaxPoint个数最多的像素值,To_MaxPoint_min_Point离个数最多的像素值最近的零点像素
-    #           Second_MaxPix次多像素的个数,Second_MaxPoint个数次多的像素值,To_SecondMaxPoint_min_Point离个数次多的像素值最近的零点像素
+    # 获取图像像素值
+    pixel_values = np.array(image_gray)
 
-    cover_pix = get_gray_pix(pic_address)  # 获取图像的像素值
-    width, hight = get_w_h(pic_address)  # 获取图片的行数列数
-    numberBins = [i + 0.5 for i in list(range(0, 256))]  # 设置条状的范围
-    histogram = generate_hist(cover_pix, numberBins)  # 产生直方图
-    if show_histogram==1:
-        plt.show()  # 展示直方图
-    histogram_list = histogram.tolist()  # 转换成列表方便操作 这个列表里面存储的是0到255像素的个数
-    histogram_list_smalltobig = sorted(histogram_list)  # 对列表进行从小到大的排序
-    MaxPix=histogram_list_smalltobig[-1]
-    Second_MaxPix=histogram_list_smalltobig[-2]
-    MaxPoint = histogram_list.index(MaxPix) + 1  # 获取最多数量像素的下标
-    Second_MaxPoint = histogram_list.index(Second_MaxPix) + 1  # 获取第二多数量像素的下标
-    # 下面寻找离最多个数下标最近的像素
-    To_MaxPoint_min_Point = Find_min_Distancce(histogram_list, 0.0, MaxPoint,Second_MaxPoint)
-    # 下面寻找离次多个数下标最近的像素
-    To_SecondMaxPoint_min_Point = Find_min_Distancce(histogram_list, 0.0, Second_MaxPoint,MaxPoint)
-    return MaxPix,MaxPoint,To_MaxPoint_min_Point,Second_MaxPix,Second_MaxPoint,To_SecondMaxPoint_min_Point
+    # 对图像进行直方图平移
+    shifted_pixel_values = (pixel_values + shift) % 256
 
-# if __name__ == '__main__':
-#
-#     MaxPix,MaxPoint,To_MaxPoint_min_Point,Second_MaxPix,Second_MaxPoint,To_SecondMaxPoint_min_Point=pic_histogram_key_inf("./11.jpg",1)
-#     print(MaxPix,MaxPoint,To_MaxPoint_min_Point,Second_MaxPix,Second_MaxPoint,To_SecondMaxPoint_min_Point)
+    # 将秘密数据隐藏到图像中
+    binary_secret_data = ''.join(format(ord(char), '08b') for char in secret_data)
+    num_pixels_needed = len(binary_secret_data)
+    stego_pixel_values = np.copy(shifted_pixel_values)
 
+    for i in range(num_pixels_needed):
+        row = i // image_gray.width
+        col = i % image_gray.width
+        stego_pixel_values[row][col] = (shifted_pixel_values[row][col] & 254) | int(binary_secret_data[i])
 
+    # 创建隐藏秘密数据后的图像
+    stego_image = Image.fromarray(stego_pixel_values)
+    stego_image.save(image_save_path)
+    # 提取隐藏的秘密数据
+    extracted_data = ''
+    for i in range(num_pixels_needed):
+        row = i // image_gray.width
+        col = i % image_gray.width
+        extracted_data += str(stego_pixel_values[row][col] & 1)
 
+    extracted_data = ''.join([chr(int(extracted_data[i:i+8], 2)) for i in range(0, len(extracted_data), 8)])
 
+    return stego_image, extracted_data
+
+# 测试示例
+image_path = 'D:\ALL_aboutSWU\IDEA_and_code\QR_codePic\\v3_M.png'  # 待处理的图像路径
+image_save_path ='D:\ALL_aboutSWU\IDEA_and_code\QR_codePic_Output\\v3_M_out.png'
+secret_data = 'Hello, world!'  # 要隐藏的秘密数据
+shift = 0  # 直方图平移的位移量
+
+# 进行信息隐藏
+stego_image, extracted_data = histogram_shift_hide(image_path, secret_data, shift)
+Original_ImageHS = plot_image_histogram(image_path)
+Stego_ImageHS = plot_image_histogram(image_save_path)
+
+# 显示原始图像
+plt.subplot(2, 2, 1)
+plt.imshow(Image.open(image_path), cmap='gray')
+plt.title('Original Image')
+
+# 显示隐藏秘密数据后的图像
+plt.subplot(2, 2, 2)
+plt.imshow(stego_image, cmap='gray')
+plt.title('Stego Image')
+
+# 显示原始图像直方图
+plt.subplot(2, 2, 3)
+plt.imshow(Original_ImageHS, cmap='gray')
+plt.title('Original_ImageHS')
+
+# 显示隐藏秘密数据后的直方图
+plt.subplot(2, 2, 4)
+plt.imshow(stego_image, cmap='gray')
+plt.title('Stego_ImageHS')
+plt.show()
+
+# 打印提取出的秘密数据
+print('Extracted Data:', extracted_data)
