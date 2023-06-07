@@ -44,5 +44,7 @@ def plot_image_histogram(image_path):
 
     return histogram_image
 
-# plot_image_histogram("D:\ALL_aboutSWU\IDEA_and_code\QR_codePic\\v3_M.png")
+pic=plot_image_histogram("D:\ALL_aboutSWU\IDEA_and_code\color_QRPic\\tu2.jpg")
+pic.show()
+#plot_image_histogram("D:\ALL_aboutSWU\IDEA_and_code\color_QRPic\\tu1.jpg")
 # plot_image_histogram("D:\ALL_aboutSWU\IDEA_and_code\QR_codePic_Output\\v3_M_out.png")
